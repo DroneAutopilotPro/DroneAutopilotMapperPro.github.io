@@ -29,7 +29,7 @@
     .gold-shimmer{position:fixed;inset: -20% -50% auto -50%;height:60vh;transform:rotate(-12deg);background:linear-gradient(90deg, rgba(184,134,11,0.03), rgba(255,215,0,0.06) 40%, rgba(184,134,11,0.04));mix-blend-mode:overlay;z-index:-1;}
 
     .container{max-width:var(--max-w);margin:0 auto;padding:5px 20px}
-    header{display:flex;align-items:center;justify-content:space-between;padding:5px 0;position:sticky;top:0;background:linear-gradient(180deg, rgba(7,7,7,0.45), rgba(7,7,7,0.2));backdrop-filter: blur(6px);z-index:40;border-bottom:1px solid rgba(255,255,255,0.03)}
+    header{display:flex;align-items:center;justify-content:space-between;padding:5px 0;position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg, rgba(7,7,7,0.45), rgba(7,7,7,0.2));backdrop-filter: blur(6px);z-index:40;border-bottom:1px solid rgba(255,255,255,0.03)}
     .logo{display:flex;align-items:center;gap:12px}
     .logo .mark{width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-soft));box-shadow:0 6px 18px rgba(184,134,11,0.12);display:grid;place-items:center;font-weight:700;color:#090909}
     nav{display:flex;gap:18px;align-items:center}
@@ -39,6 +39,9 @@
     nav a::after{content:'';position:absolute;left:8px;right:8px;bottom:6px;height:2px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));opacity:0;transform:scaleX(0);transform-origin:left center;transition:transform .32s cubic-bezier(.2,.9,.2,1),opacity .28s}
     nav a:hover::after{opacity:1;transform:scaleX(1)}
 
+    /* buat hero/halaman pertama benar-benar hitam */
+    
+    
     /* header buttons */
     .cta{margin-left:12px;padding:8px 12px;border-radius:8px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));color:#070707;font-weight:700;box-shadow:0 6px 18px rgba(184,134,11,0.12)}
 
@@ -350,36 +353,29 @@
     });
 
     /* ================= Audio + Reactive Text (paste di akhir <script> atau buat script baru) ================= */
+    // Smooth scroll / reveal / other scripts di atas tetap (tidak diubah).
     (function(){
       const audioEl = document.getElementById('bg-audio');
       const controlBtn = document.getElementById('audio-control');
       const audioHint = document.getElementById('audio-hint');
 
-      let audioCtx = null;
-      let sourceNode = null;
-      let analyser = null;
-      let rafId = null;
-      let reactiveEls = [];
-      let elPhases = [];
+      // visualizer vars
+      let audioCtx = null, sourceNode = null, analyser = null, rafId = null;
+      let reactiveEls = [], elPhases = [];
 
-      // Adjustable parameters:
-      const MAX_Y = 3;       // max translate in px (subtle). ubah ke 2 atau 4 sesuai selera
-      const MAX_ROT = 0.6;   // max rotation in degrees
-      const SMOOTH = 0.12;   // smoothing factor (0..1)
-      const FFT_SIZE = 256;  // analyser FFT size (256 atau 512)
+      // visualizer params (bisa diubah)
+      const MAX_Y = 3, MAX_ROT = 0.6, SMOOTH = 0.12, FFT_SIZE = 256;
 
-      // Collect text elements to animate
+      // collect reactive elements for subtle motion
       function collectReactiveElements(){
-        reactiveEls = [];
-        elPhases = [];
-        // pilih elemen teks umum — ubah selector jika mau lebih spesifik
+        reactiveEls = []; elPhases = [];
         const candidates = document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,a,button,span,label,li,small');
         candidates.forEach(el=>{
           const txt = (el.textContent || '').trim();
           if(!txt) return;
-          if(el.offsetParent === null) return; // hidden element
-          if(txt.length > 800) return; // skip very long container text
-          if(el.closest('#audio-control')) return; // jangan include kontrol
+          if(el.offsetParent === null) return;
+          if(txt.length > 800) return;
+          if(el.closest('#audio-control')) return;
           el.classList.add('reactive');
           reactiveEls.push(el);
           elPhases.push(Math.random()*Math.PI*2);
@@ -387,10 +383,10 @@
         });
       }
 
-      // Setup audio context + analyser
+      // audio context setup
       function setupAudioContext(){
         if(!window.AudioContext && !window.webkitAudioContext) return false;
-        try{
+        try {
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           sourceNode = audioCtx.createMediaElementSource(audioEl);
           analyser = audioCtx.createAnalyser();
@@ -399,25 +395,24 @@
           sourceNode.connect(analyser);
           analyser.connect(audioCtx.destination);
           return true;
-        }catch(e){
-          console.warn('AudioContext setup failed:', e);
+        } catch(e) {
+          console.warn('AudioContext failed', e);
           return false;
         }
       }
 
-      // Start visual animation loop (uses analyser data)
+      // animation loop
       function startAnimationLoop(){
         if(!analyser) return;
         const freqData = new Uint8Array(analyser.frequencyBinCount);
         const startTime = performance.now();
         function frame(){
           analyser.getByteFrequencyData(freqData);
-          // focus on low-frequency energy (bass/beat) for subtle movement
           const lowCount = Math.max(8, Math.floor(freqData.length * 0.12));
           let sumLow = 0;
           for(let i=0;i<lowCount;i++) sumLow += freqData[i];
-          const avg = sumLow / lowCount; // 0..255
-          const norm = avg / 255; // 0..1
+          const avg = sumLow / lowCount;
+          const norm = avg / 255;
           const time = performance.now() - startTime;
 
           reactiveEls.forEach((el, idx)=>{
@@ -433,50 +428,14 @@
 
           rafId = requestAnimationFrame(frame);
         }
-        frame();
+        if(!rafId) frame();
       }
 
       function stopAnimationLoop(){
         if(rafId) cancelAnimationFrame(rafId);
         rafId = null;
-        // reset transforms
-        reactiveEls.forEach(el=>{
-          el.style.transform = '';
-        });
+        reactiveEls.forEach(el => el.style.transform = '');
       }
-
-      async function toggleAudio(){
-      try{
-        if(!audioCtx){
-          setupAudioContext();
-        }
-        if(audioCtx && audioCtx.state === 'suspended'){
-          await audioCtx.resume();
-        }
-
-        if(audioEl.paused){
-          // jika sebelumnya autoplay muted dijalankan, audio mungkin paused==false but muted==true.
-          // pastikan kita unmute untuk suara
-          if(audioEl.muted){
-            audioEl.muted = false;
-            await audioEl.play().catch(()=>{}); // play kalau perlu
-            fadeInVolume(audioEl, 0.5, 600);
-          } else {
-            await audioEl.play();
-          }
-          controlBtn.classList.add('playing');
-          controlBtn.setAttribute('aria-pressed','true');
-        } else {
-          audioEl.pause();
-          controlBtn.classList.remove('playing');
-          controlBtn.setAttribute('aria-pressed','false');
-        }
-      }catch(err){
-        console.warn('toggleAudio error', err);
-        audioHint.style.display = 'block';
-        setTimeout(()=> audioHint.style.display = 'none', 2500);
-      }
-    }
 
       function setControlIconPlaying(isPlaying){
         const playPath = document.getElementById('play-path');
@@ -484,34 +443,13 @@
         if(isPlaying){
           if(playPath) playPath.style.display = 'none';
           if(pauseGroup) pauseGroup.style.display = 'inline';
-        }else{
+        } else {
           if(playPath) playPath.style.display = 'inline';
           if(pauseGroup) pauseGroup.style.display = 'none';
         }
       }
 
-      // Events
-      audioEl.addEventListener('play', ()=>{
-        setControlIconPlaying(true);
-        if(!audioCtx) setupAudioContext();
-        if(!rafId) startAnimationLoop();
-      });
-      audioEl.addEventListener('pause', ()=>{
-        setControlIconPlaying(false);
-        stopAnimationLoop();
-      });
-
-      controlBtn.addEventListener('click', async (e)=>{
-        e.preventDefault();
-        await toggleAudio();
-        audioHint.style.display = 'none';
-      });
-      // keyboard activation
-      controlBtn.addEventListener('keydown', (e)=>{
-        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); controlBtn.click(); }
-      });
-
-      // fade-in helper: panggil fadeInVolume(audioEl, 0.6, 700);
+      // fade helper
       function fadeInVolume(audio, target = 0.6, duration = 700) {
         try {
           audio.volume = audio.volume ?? 0;
@@ -523,100 +461,149 @@
             if (t < 1) requestAnimationFrame(step);
           }
           requestAnimationFrame(step);
-        } catch (e) { /* ignore */ }
+        } catch(e) { /* ignore */ }
       }
 
-     
-      // fungsi autoplay
-      async function tryAutoPlay(){
-        collectReactiveElements();
-        try{ setupAudioContext(); }catch(e){}
+      // Toggle audio when user clicks control button
+      async function toggleAudio(){
+        try {
+          if(!audioCtx) setupAudioContext();
+          if(audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
 
-        // Helper: action yang dieksekusi sekali pada gesture user (unmute + fade + play)
-        async function handleUserGestureOnce() {
-          try {
-            // resume AudioContext jika perlu
-            if (audioCtx && audioCtx.state === 'suspended') {
-              await audioCtx.resume();
-            }
-            // unmute & fade-in
-            if (audioEl.muted) audioEl.muted = false;
-            // pastikan play (beberapa browser mempause saat muted->unmuted)
-            try { await audioEl.play(); } catch(_) {}
+          if(audioEl.paused){
+            if(audioEl.muted) audioEl.muted = false;
+            await audioEl.play();
             fadeInVolume(audioEl, 0.6, 600);
             controlBtn.classList.add('playing');
             controlBtn.setAttribute('aria-pressed','true');
-            // start visualizer jika belum
-            if(!rafId && analyser) startAnimationLoop();
-          } catch(err) {
-            console.warn('handleUserGestureOnce error', err);
+          } else {
+            audioEl.pause();
+            controlBtn.classList.remove('playing');
+            controlBtn.setAttribute('aria-pressed','false');
+          }
+        } catch(err) {
+          console.warn('toggleAudio error', err);
+          audioHint.style.display = 'block';
+          setTimeout(()=> audioHint.style.display = 'none', 2400);
+        }
+      }
+
+      // Event binding for control button
+      controlBtn.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        await toggleAudio();
+      });
+      controlBtn.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); controlBtn.click(); }
+      });
+
+      // Main autopPlay logic:
+      // 1) Try unmuted play (best UX)
+      // 2) If blocked, try muted autoplay (often allowed)
+      // 3) If muted autoplay works, attach one-time gesture listeners to unmute+fade on first user interaction
+      // 4) If muted autoplay fails, attach gesture listeners that play+unmute on gesture
+      async function initAutoplayFlow(){
+        collectReactiveElements();
+        setupAudioContext();
+        audioEl.loop = true;
+        audioEl.preload = 'auto';
+
+        // helper to remove gesture listeners after first fire
+        let fired = false;
+        function removeGestureListeners(listeners){
+          listeners.forEach(({ev,fn})=>window.removeEventListener(ev,fn, {passive:true}));
+        }
+
+        async function onFirstGesture(ev){
+          if(fired) return;
+          fired = true;
+          // resume audio context if needed (must be in user gesture)
+          try{
+            if(audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+          }catch(e){}
+          try {
+            // play/unmute and fade
+            if(audioEl.paused) await audioEl.play().catch(()=>{});
+            audioEl.muted = false;
+            fadeInVolume(audioEl, 0.6, 600);
+            controlBtn.classList.add('playing');
+            controlBtn.setAttribute('aria-pressed','true');
+            if(analyser && !rafId) startAnimationLoop();
+          } catch(e) {
+            console.warn('onFirstGesture play failed', e);
           } finally {
-            // remove all gesture listeners (safety)
-            window.removeEventListener('pointerdown', gestureListener);
-            window.removeEventListener('keydown', gestureListener);
-            window.removeEventListener('touchstart', gestureListener);
-            window.removeEventListener('pointerover', gestureListener);
-            window.removeEventListener('scroll', scrollListener);
+            removeGestureListeners(gestureListeners);
+            audioHint.style.display = 'none';
           }
         }
 
-        // generic listener wrapper
-        const gestureListener = function(e){
-          // small debounce — if user triggered multiple events quickly, ignore duplicates
-          if (gestureListener._fired) return;
-          gestureListener._fired = true;
-          handleUserGestureOnce();
-        };
+        const gestureListeners = [
+          {ev:'pointerdown', fn:onFirstGesture},
+          {ev:'touchstart', fn:onFirstGesture},
+          {ev:'keydown', fn:(e)=>{ if(e.key && e.key.length===1) onFirstGesture(e); }},
+          {ev:'pointerover', fn:onFirstGesture},
+          {ev:'scroll', fn:onFirstGesture}
+        ];
+        gestureListeners.forEach(({ev,fn})=> window.addEventListener(ev,fn, {passive:true}));
 
-        // scroll needs its own to remove after first use (can't use {once:true} reliably cross-browser)
-        const scrollListener = function(e){
-          if (scrollListener._fired) return;
-          scrollListener._fired = true;
-          handleUserGestureOnce();
-        };
-
+        // 1) Try unmuted play first (best)
         try{
-          audioEl.loop = true;
-          audioEl.preload = 'auto';
+          audioEl.muted = false;
+          await audioEl.play();
+          // success
+          controlBtn.classList.add('playing');
+          controlBtn.setAttribute('aria-pressed','true');
+          if(!audioCtx) setupAudioContext();
+          if(analyser) startAnimationLoop();
+          // remove listeners because we already started
+          removeGestureListeners(gestureListeners);
+          return;
+        }catch(err){
+          console.warn('Unmuted autoplay failed (expected on some browsers):', err);
+        }
 
-          // Try muted autoplay first (most browsers permit muted autoplay)
+        // 2) Try muted autoplay (most browsers allow muted autoplay)
+        try{
           audioEl.muted = true;
           audioEl.volume = 0;
-
-          await audioEl.play(); // coba play muted
-          // berhasil autoplay (muted)
+          await audioEl.play();
+          // muted autoplay succeeded — show playing state visually but still muted
+          controlBtn.classList.add('playing');
+          controlBtn.setAttribute('aria-pressed','true');
           if(!audioCtx) setupAudioContext();
           if(analyser) startAnimationLoop();
 
-          controlBtn.classList.add('playing');
-          controlBtn.setAttribute('aria-pressed','true');
-
-          // Pasang listeners agar scroll atau hover juga menjadi trigger "unmute"
-          window.addEventListener('pointerdown', gestureListener, {passive:true});
-          window.addEventListener('keydown', gestureListener, {passive:true});
-          window.addEventListener('touchstart', gestureListener, {passive:true});
-          window.addEventListener('pointerover', gestureListener, {passive:true});
-          window.addEventListener('scroll', scrollListener, {passive:true});
-
-        }catch(err){
-          // autoplay muted gagal (jarang), fallback: tampilkan hint & tunggu gesture
-          controlBtn.classList.remove('playing');
-          controlBtn.setAttribute('aria-pressed','false');
+          // keep gesture listeners active: first gesture will unmute + fade-in
           audioHint.style.display = 'block';
-          setTimeout(()=> audioHint.style.display = 'none', 2400);
-
-          // pasang same gesture listeners untuk memulai play+unmute ketika user scroll/hover/click
-          window.addEventListener('pointerdown', gestureListener, {passive:true});
-          window.addEventListener('keydown', gestureListener, {passive:true});
-          window.addEventListener('touchstart', gestureListener, {passive:true});
-          window.addEventListener('pointerover', gestureListener, {passive:true});
-          window.addEventListener('scroll', scrollListener, {passive:true});
+          setTimeout(()=>{ if(!fired) audioHint.style.display = 'none'; }, 3000);
+          return;
+        }catch(err){
+          console.warn('Muted autoplay failed too:', err);
         }
-      }
-      // Start
-      tryAutoPlay();
-    })();
 
+        // 3) All autoplay attempts failed — show hint and wait for gesture (listeners already attached)
+        audioHint.style.display = 'block';
+        // listeners will handle when user interacts
+      }
+
+      // audio element events to manage UI & visualizer
+      audioEl.addEventListener('play', ()=>{
+        setControlIconPlaying(true);
+        if(!audioCtx) setupAudioContext();
+        if(!rafId && analyser) startAnimationLoop();
+      });
+      audioEl.addEventListener('pause', ()=>{
+        setControlIconPlaying(false);
+        stopAnimationLoop();
+      });
+
+      // Start the flow after a short delay to allow DOM elements to settle
+      window.addEventListener('DOMContentLoaded', ()=> {
+        // try immediately, but do not block page
+        initAutoplayFlow().catch(e=>console.warn('initAutoplayFlow error', e));
+      });
+
+    })();
 
   </script>
 </body>
